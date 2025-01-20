@@ -1,0 +1,6 @@
+*.retry
+.DS_Store
+.zshrc_config
+.terraform
+*.tfstate*
+.idea
