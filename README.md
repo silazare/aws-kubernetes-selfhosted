@@ -1,7 +1,8 @@
 # Self-Hosted Kubernetes in AWS for development
 
-The project was intended to make Selfhosted Kubernetes Medium way on IaaS AWS with no any managed services.
-Not production ready!
+The project was intended to make Selfhosted Kubernetes Medium Well way on IaaS AWS with no any managed services.
+1 master node + 3 worker nodes + 1 HAProxy LB node
+!!! Not fully production ready !!!
 
 ## Cluster Boostrap
 
@@ -245,10 +246,9 @@ k apply -f coredns.yaml
 k logs -n kube-system -l k8s-app=kube-dns
 ```
 
-### Direct Cilium installation
+### Direct Cilium installation from binary
 ```shell
 cilium install --set ipam.mode=kubernetes
-
 cilium status
 ```
 
@@ -268,5 +268,5 @@ ip link delete cilium_net || true
 ip route | grep cilium
 iptables -L -n -v | grep CILIUM
 
-Then install again
+Then install it again
 ```
