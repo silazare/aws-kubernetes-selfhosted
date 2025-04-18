@@ -1,0 +1,16 @@
+# Define an L2 Announcement Policy named "policy1".
+# This policy enables L2 announcements for all interfaces matching the pattern.
+# It includes both externalIPs and loadBalancerIPs in the announcements
+#
+# Traffic flow: External > <LoadBalancer IP from IP pool> > Any Node > Cilium > Pod
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: policy1
+spec:
+  interfaces:
+  #- ^ens[0-9]+
+  - .*
+  externalIPs: true
+  loadBalancerIPs: true

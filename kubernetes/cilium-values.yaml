@@ -38,8 +38,13 @@ hubble:
 ingressController:
   # Enable the Cilium Ingress controller to handle incoming HTTP/HTTPS traffic
   enabled: true
-  # Configure the Ingress controller to use dedicated load balancers for each service
-  loadbalancerMode: dedicated
+  # -- Set cilium ingress controller to be the default ingress controller
+  default: true
+  # Configure the Ingress controller to use shared load balancer for each service
+  # Supported values: shared, dedicated
+  # For granular control, use the following annotations on the ingress resource:
+  # "ingress.cilium.io/loadbalancer-mode: dedicated" (or "shared").
+  loadbalancerMode: shared
 # Set both externalTrafficPolicy and internalTrafficPolicy to Cluster. This 
 # distributes traffic to all endpoints of a service, regardless of their location
 internalTrafficPolicy: Cluster

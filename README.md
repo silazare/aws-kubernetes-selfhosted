@@ -3,6 +3,8 @@
 The project was intended to make Selfhosted Kubernetes Medium way on IaaS AWS with no any managed services.
 Not production ready!
 
+## Cluster Boostrap
+
 ### Apply Terraform resources
 ```shell
 terraform init
@@ -96,6 +98,27 @@ k get pods -A
 ```shell
 k taint node <nodename> node-role.kubernetes.io/control-plane:NoSchedule
 ```
+
+## OPTION 1 - Cilium Ingress Controller setup
+
+### Create Cilium IP Pool and L2 policy
+```shell
+k apply -f cilium-ippool.yaml
+k get ippools
+
+k apply -f cilium-l2-policy.yaml
+k get CiliumL2AnnouncementPolicy
+
+k logs -n kube-system -l k8s-app=cilium | grep -i "l2"
+```
+
+### Create Test Ingress LB to check
+```shell
+k apply -f nginx-ingress-test.yaml
+curl http://<CILIUM LB IP>
+```
+
+## OPTION 2 - Nginx Ingress Controller setup
 
 ### Deploy Nginx Ingress Controller (on Master node)
 

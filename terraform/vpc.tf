@@ -81,7 +81,7 @@ resource "aws_security_group" "main" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["115.87.151.49/32"] //TODO: REPLACEME
+    cidr_blocks = ["124.120.193.254/32"] //TODO: REPLACEME
   }
 
   ingress {
@@ -89,7 +89,7 @@ resource "aws_security_group" "main" {
     from_port   = 6443
     to_port     = 6443
     protocol    = "tcp"
-    cidr_blocks = ["115.87.151.49/32"] //TODO: REPLACEME
+    cidr_blocks = ["124.120.193.254/32"] //TODO: REPLACEME
   }
 
   ingress {
@@ -132,7 +132,7 @@ resource "aws_security_group" "ingress" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["115.87.151.49/32"] //TODO: REPLACEME
+    cidr_blocks = ["124.120.193.254/32"] //TODO: REPLACEME
   }
 
   ingress {
@@ -156,7 +156,7 @@ resource "aws_security_group" "ingress" {
     from_port   = 9000
     to_port     = 9000
     protocol    = "tcp"
-    cidr_blocks = ["115.87.151.49/32"] //TODO: REPLACEME
+    cidr_blocks = ["124.120.193.254/32"] //TODO: REPLACEME
   }
 
   ingress {

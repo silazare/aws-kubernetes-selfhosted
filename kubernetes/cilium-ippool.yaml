@@ -1,0 +1,14 @@
+# Define an IP pool named "general-pool" for Cilium to use for LoadBalancer IPs.
+# This pool includes the IP range from VPC CIDR
+# !!! Use it wisely with no overlapping, because it will be used for all LoadBalancer services !!!
+#
+# Traffic flow: External > <LoadBalancer IP from IP pool> > Any Node > Cilium > Pod
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: general-pool
+spec:
+  blocks:
+  - start: "10.0.1.240"
+    stop: "10.0.1.249"
