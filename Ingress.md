@@ -1,4 +1,4 @@
-# Bare Metal Ingress flow
+# Bare Metal Default Ingress flow
 
 ```shell
 Client

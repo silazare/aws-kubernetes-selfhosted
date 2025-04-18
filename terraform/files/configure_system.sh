@@ -37,3 +37,7 @@ echo "==> Verifying sysctl settings"
 sysctl net.bridge.bridge-nf-call-iptables
 sysctl net.bridge.bridge-nf-call-ip6tables
 sysctl net.ipv4.ip_forward
+
+# Disable AppArmor (optional)
+systemctl stop apparmor
+systemctl disable apparmor

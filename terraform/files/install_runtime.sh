@@ -6,7 +6,8 @@ set -eux
 # Print the script file name
 echo "==> Running $0"
 
-KUBE_VERSION="1.32"
+KUBE_CORE_VERSION="1.32"
+KUBE_VERSION="1.32.3"
 CRICTL_VERSION="v1.32.0"
 CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/master/stable.txt)
 CLI_ARCH=arm64
@@ -20,8 +21,8 @@ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list
 
 # Add Kubernetes repository
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v${KUBE_VERSION}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${KUBE_VERSION}/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v${KUBE_CORE_VERSION}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${KUBE_CORE_VERSION}/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
 
 # Update apt package index
 apt-get update
@@ -46,6 +47,10 @@ EOF
 mkdir -p /etc/containerd
 containerd config dump > /etc/containerd/config.toml
 sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+# (Optional)
+# Specifying the sandbox image as “registry.k8s.io/pause:3.10” is necessary because kubeadm 1.31.2 requires this specific version.
+# The default config.toml in containerd points to version 3.8, which could lead to compatibility issues during cluster initialization.
+sed -i 's#sandbox_image = "registry.k8s.io/pause:3.8"#sandbox_image = "registry.k8s.io/pause:3.10"#g' /etc/containerd/config.toml
 systemctl daemon-reload
 systemctl enable containerd.service
 systemctl restart containerd.service
@@ -56,7 +61,7 @@ crictl --version
 containerd --version
 
 # Install specific Kubernetes version
-apt-get install -y kubelet=${KUBE_VERSION}.0-1.1 kubeadm=${KUBE_VERSION}.0-1.1 kubectl=${KUBE_VERSION}.0-1.1
+apt-get install -y kubelet=${KUBE_VERSION}-1.1 kubeadm=${KUBE_VERSION}-1.1 kubectl=${KUBE_VERSION}-1.1
 
 # Hold packages to prevent automatic updates
 apt-mark hold kubelet kubeadm kubectl
@@ -84,8 +89,8 @@ echo 'alias k=kubectl' >> /home/ubuntu/.bashrc
 echo 'complete -F __start_kubectl k' >> /home/ubuntu/.bashrc
 
 # Install Helm
-curl -Lo helm.tar.gz https://get.helm.sh/helm-v3.13.1-linux-arm.tar.gz
+curl -Lo helm.tar.gz https://get.helm.sh/helm-v3.17.3-linux-arm64.tar.gz
 tar -zxvf helm.tar.gz
-mv linux-arm/helm /usr/local/bin/helm
-rm -rf linux-arm
+mv linux-arm64/helm /usr/local/bin/helm
+rm -rf linux-arm64
 rm -f helm.tar.gz
