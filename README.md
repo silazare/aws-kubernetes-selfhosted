@@ -66,9 +66,10 @@ ip-10-0-1-140   NotReady   control-plane   85s   v1.32.0
 ### Bootstrap single worker nodes (on each worker)
 
 Then you can join any number of worker nodes by running the following on each as root:
-
+```shell
 kubeadm join 10.0.1.46:6443 --token a4dkp2.4t4uj3bkddccuffj \
 	--discovery-token-ca-cert-hash sha256:9d641c0985a34a9236504703363b4143375d7e0ed142a2209539e3f11e205506
+```
 
 ### Install Cilium
 https://medium.com/@shih.chieh.cheng/cilium-argo-cd-on-a-single-node-kubernetes-cluster-on-your-laptop-a-love-story-of-ebpf-and-44936ea38ff1
