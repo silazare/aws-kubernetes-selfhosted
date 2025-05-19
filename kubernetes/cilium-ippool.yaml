@@ -10,5 +10,5 @@ metadata:
   name: general-pool
 spec:
   blocks:
-  - start: "10.0.1.240"
-    stop: "10.0.1.249"
+  - start: "10.0.1.200"
+    stop: "10.0.1.210"

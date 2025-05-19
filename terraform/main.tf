@@ -29,6 +29,7 @@ resource "aws_instance" "master_nodes" {
   vpc_security_group_ids = [
     aws_security_group.main.id,
   ]
+  source_dest_check = false
 
   root_block_device {
     volume_size = 32
@@ -87,6 +88,7 @@ resource "aws_instance" "worker_nodes" {
   vpc_security_group_ids = [
     aws_security_group.main.id,
   ]
+  source_dest_check = false
 
   root_block_device {
     volume_size = 32
@@ -138,6 +140,7 @@ resource "aws_instance" "haproxy_lb" {
   vpc_security_group_ids = [
     aws_security_group.ingress.id,
   ]
+  source_dest_check = false
 
   root_block_device {
     volume_size = 32

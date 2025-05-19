@@ -1,4 +1,4 @@
-# Cilium Ingress network flow
+# Cilium Ingress L2-ARP network flow
 
 ### How L2 ARP works ?
 ```shell

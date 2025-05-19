@@ -10,7 +10,6 @@ metadata:
   name: policy1
 spec:
   interfaces:
-  #- ^ens[0-9]+
-  - .*
+  - ^ens[0-9]+$
   externalIPs: true
   loadBalancerIPs: true

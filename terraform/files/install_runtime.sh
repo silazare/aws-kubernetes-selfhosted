@@ -14,7 +14,7 @@ CLI_ARCH=arm64
 
 # Update and install prerequisites
 apt-get update
-apt-get install -y apt-transport-https ca-certificates curl bash-completion binutils vim net-tools
+apt-get install -y apt-transport-https ca-certificates curl bash-completion binutils vim net-tools iputils-arping
 
 # Add Docker repository
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
