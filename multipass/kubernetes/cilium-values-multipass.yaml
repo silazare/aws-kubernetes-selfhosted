@@ -43,6 +43,16 @@ hubble:
     enabled: false
   ui:
     enabled: true
+    # Configure Hubble UI Ingress to make it accessible through Cilium Ingress Controller
+    ingress:
+      enabled: true
+      className: "cilium"
+      annotations:
+        ingress.cilium.io/loadbalancer-mode: "shared"
+      hosts:
+        - ""  # Empty hostname - allows access by IP without hostname
+      paths:
+        - "/"
 
 ingressController:
   # Enable the Cilium Ingress controller to handle incoming HTTP/HTTPS traffic

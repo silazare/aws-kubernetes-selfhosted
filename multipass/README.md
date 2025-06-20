@@ -1,5 +1,7 @@
 #  Self-Hosted Kubernetes in Multipass Ubuntu nodes
 
+https://medium.com/@shih.chieh.cheng/cilium-argo-cd-on-a-single-node-kubernetes-cluster-on-your-laptop-a-love-story-of-ebpf-and-44936ea38ff1
+
 This folder contains configuration for setting up a Kubernetes cluster using Multipass.
 
 ## Create multipass nodes with cloud-init
@@ -69,8 +71,6 @@ unset KUBECONFIG
 ```
 
 ### Install Cilium
-https://medium.com/@shih.chieh.cheng/cilium-argo-cd-on-a-single-node-kubernetes-cluster-on-your-laptop-a-love-story-of-ebpf-and-44936ea38ff1
-
 ```shell
 !!! Replace API server Internal IP !!!
 
@@ -119,5 +119,39 @@ k -n kube-system exec $POD -- cilium-dbg shell -- db/show l2-announce
 ### Create Test Nginx Ingress LB to check Cilium LB
 ```shell
 k apply -f kubernetes/nginx-ingress-test.yaml
-curl http://<node_ip>:80
+curl http://<VIP_SVC_IP>:80
 ```
+
+### Check Cilium Hubble UI via Cilium LB
+```shell
+http://<VIP_CILIUM_SVC_IP>
+```
+
+
+## Install ArgoCD
+
+### Add the Argo CD Helm repository
+```shell
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+```
+
+### Install Argo CD with its default configuration and expose the UI as a LoadBalancer
+```shell
+k create namespace argocd
+helm install argocd argo/argo-cd \
+    --set server.service.type=LoadBalancer \
+    --namespace argocd
+```
+
+### Verify Argo CD Server status and find the VIP assigned
+```shell
+k get all -n argocd
+k get pods -n argocd
+k describe svc argocd-server -n argocd
+k get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d
+
+http://<VIP_ARGO_SVC_IP>
+```
+
+

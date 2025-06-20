@@ -1,0 +1,86 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opentelemetry-demo
+  namespace: argocd
+  labels:
+    app: opentelemetry-demo
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  # Source configuration - Helm chart from OpenTelemetry repository
+  source:
+    repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    targetRevision: 0.37.1 # Specify chart version
+    chart: opentelemetry-demo
+    helm:
+      # Use the default values.yaml from the chart
+      valueFiles:
+        - values.yaml
+      #Add custom values 
+      # values: |
+      #   # Configure Kafka with Bitnami image for ARM64 compatibility
+      #   components:
+      #     kafka:
+      #       imageOverride:
+      #         repository: bitnami/kafka
+      #         tag: "3.6.0"
+      #       env:
+      #         - name: ALLOW_PLAINTEXT_LISTENER
+      #           value: "yes"
+      #         - name: KAFKA_ENABLE_KRAFT
+      #           value: "yes"
+      #         - name: KAFKA_CFG_NODE_ID
+      #           value: "1"
+      #         - name: KAFKA_CFG_PROCESS_ROLES
+      #           value: "broker,controller"
+      #         - name: KAFKA_CFG_CONTROLLER_LISTENER_NAMES
+      #           value: "CONTROLLER"
+      #         - name: KAFKA_CFG_LISTENERS
+      #           value: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      #         - name: KAFKA_CFG_ADVERTISED_LISTENERS
+      #           value: "PLAINTEXT://kafka:9092"
+      #         - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
+      #           value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      #         - name: KAFKA_CFG_CONTROLLER_QUORUM_VOTERS
+      #           value: "1@kafka:9093"
+      #         - name: KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE
+      #           value: "true"
+      #         - name: KAFKA_CFG_DELETE_TOPIC_ENABLE
+      #           value: "true"
+      #         - name: KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR
+      #           value: "1"
+      #         - name: KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+      #           value: "1"
+      #         - name: KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR
+      #           value: "1"
+      #       securityContext:
+      #         runAsUser: 1001
+      #         runAsGroup: 1001
+      #         fsGroup: 1001
+      #       # Override the default volume mounts to use emptyDir instead of persistent volumes
+      #       additionalVolumes: []
+      #       additionalVolumeMounts: []
+  # Destination configuration
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo
+  # Sync policy configuration
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true  # Auto-create namespace
+      #- Retry=true            # Enable retry on sync failures
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  # Health and status configuration
+  revisionHistoryLimit: 10
