@@ -108,97 +108,7 @@ k get pods -A
 k taint node <nodename> node-role.kubernetes.io/control-plane:NoSchedule
 ```
 
-## OPTION 1 - Cilium Ingress Controller setup
-
-### Create Cilium IP Pool and L2 policy
-```shell
-k apply -f kubernetes/cilium-ippool.yaml
-k get ippools
-
-k apply -f kubernetes/cilium-l2-policy.yaml
-k get CiliumL2AnnouncementPolicy
-
-k logs -n kube-system -l k8s-app=cilium | grep -i "l2"
-```
-
-### Check Cilium L2 announcements and its state
-```shell
-k -n kube-system get lease | grep cilium-l2announce
-
-k -n kube-system get lease cilium-l2announce-kube-system-cilium-ingress -o jsonpath='{.spec.holderIdentity}'
-
-POD=$(k -n kube-system get pods -l k8s-app=cilium -o wide | grep worker-1 | awk '{print $1}')
-
-k -n kube-system exec $POD -- cilium-dbg shell -- db/show l2-announce
-```
-
-### Deploy Haproxy ingress for Cilium Ingress Public access ( L2-ARP is NOT WORKING on AWS EC2 )
-
-```shell
-cat > /etc/haproxy/haproxy.cfg <<EOF
-global
-    maxconn 20000
-    daemon
-
-defaults
-    log     global
-    mode    tcp
-    option  dontlognull
-    timeout connect 10s
-    timeout client 86400s
-    timeout server 86400s
-    timeout tunnel 86400s
-    timeout http-request 10s
-    timeout queue        1m
-
-# --- Web UI for stats ---
-listen stats
-    bind :9000
-    mode http
-    stats enable
-    stats uri /
-    stats refresh 10s
-    stats auth admin:password
-
-# --- HTTP frontend ---
-frontend cilium-http
-    bind *:80
-    mode tcp
-    default_backend cilium-backend-http
-
-backend cilium-backend-http
-    mode tcp
-    option tcp-check
-    balance roundrobin
-    server ingress1 10.0.1.200:80 check fall 3 rise 2
-
-# --- HTTPS frontend ---
-frontend cilium-https
-    bind *:443
-    mode tcp
-    default_backend cilium-backend-https
-
-backend cilium-backend-https
-    mode tcp
-    option tcp-check
-    balance roundrobin
-    server ingress1 10.0.1.200:443 check fall 3 rise 2
-EOF
-
-systemctl restart haproxy
-systemctl status haproxy
-```
-
-Check HAproxy stat:
-http://<haproxy_node_public_ip>:9000
-
-### Create Test Ingress LB to check
-```shell
-k apply -f nginx-ingress-test.yaml
-curl http://<haproxy_node_public_ip>:80
-```
-
-## OPTION 2 - Nginx Ingress Controller setup
+## Nginx Ingress Controller setup
 
 ### Deploy Nginx Ingress Controller (on Master node)
 
@@ -290,7 +200,7 @@ curl -Is podinfo-service
 - Check website
 http://podinfo.example.com
 
-## Appendix A: Optional and legacy installation parts
+## Appendix A: Optional installation parts
 
 ### Regenerate kubeadm token command for worker nodes join (lifetime 24 hours)
 ```shell

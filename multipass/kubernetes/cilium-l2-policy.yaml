@@ -1,0 +1,17 @@
+# Define an L2 Announcement Policy named "policy1".
+# This policy enables L2 announcements for multipass interfaces.
+# It includes both externalIPs and loadBalancerIPs in the announcements
+#
+# Traffic flow: External > <LoadBalancer IP from IP pool> > Any Node > Cilium > Pod
+#
+# Multipass network interface: enp0s1
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: policy1
+spec:
+  interfaces:
+  - enp0s1
+  externalIPs: true
+  loadBalancerIPs: true

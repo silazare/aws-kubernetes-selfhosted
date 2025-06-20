@@ -1,0 +1,19 @@
+# Define an IP pool named "general-pool" for Cilium to use for LoadBalancer IPs.
+# This pool includes the IP range from multipass network CIDR (192.168.64.0/24)
+# !!! Use it wisely with no overlapping, because it will be used for all LoadBalancer services !!!
+#
+# Traffic flow: External > <LoadBalancer IP from IP pool> > Any Node > Cilium > Pod
+#
+# Multipass network: 192.168.64.0/24
+# Master node: 192.168.64.6
+# Worker node: 192.168.64.7
+# Available range for LoadBalancer IPs: 192.168.64.10-192.168.64.254
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: general-pool
+spec:
+  blocks:
+  - start: "192.168.64.10"
+    stop: "192.168.64.12"

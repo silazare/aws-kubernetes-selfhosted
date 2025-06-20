@@ -91,3 +91,33 @@ k -n kube-system exec -it $(k -n kube-system get pods -l k8s-app=cilium -o jsonp
 ```shell
 k get pods -A
 ```
+
+## Cilium Ingress Controller setup
+
+### Create Cilium IP Pool and L2 policy
+```shell
+k apply -f kubernetes/cilium-ippool.yaml
+k get ippools
+
+k apply -f kubernetes/cilium-l2-policy.yaml
+k get CiliumL2AnnouncementPolicy
+
+k logs -n kube-system -l k8s-app=cilium | grep -i "l2"
+```
+
+### Check Cilium L2 announcements and its state
+```shell
+k -n kube-system get lease | grep cilium-l2announce
+
+k -n kube-system get lease cilium-l2announce-kube-system-cilium-ingress -o jsonpath='{.spec.holderIdentity}'
+
+POD=$(k -n kube-system get pods -l k8s-app=cilium -o wide | grep worker-1 | awk '{print $1}')
+
+k -n kube-system exec $POD -- cilium-dbg shell -- db/show l2-announce
+```
+
+### Create Test Nginx Ingress LB to check Cilium LB
+```shell
+k apply -f kubernetes/nginx-ingress-test.yaml
+curl http://<node_ip>:80
+```
