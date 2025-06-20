@@ -1,0 +1,178 @@
+#cloud-config
+
+# Worker node cloud-init configuration for Kubernetes
+
+# Update and install packages
+package_update: true
+package_upgrade: true
+
+write_files:
+  - path: /root/configure_system.sh
+    content: |
+      #!/bin/bash
+
+      set -eux
+
+      # Print the script file name
+      echo "==> Running $0"
+
+      hostnamectl set-hostname "${node_name}"
+
+      # Disable swap
+      swapoff -a
+      sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+
+      # Load kernel modules
+      # OverlayFS support
+      modprobe overlay
+      # Filtering traffic between network bridges
+      modprobe br_netfilter
+      echo br_netfilter > /etc/modules-load.d/br_netfilter.conf
+      systemctl restart systemd-modules-load.service
+
+      # Create sysctl config file for Kubernetes
+      # 1) Enable filtering traffic thru iptables chains for bridges IPv4
+      # 2) Enable filtering traffic thru iptables chains for bridges IPv6
+      # 3) Forward packets between interfaces/nodes
+      cat <<EOF | tee /etc/sysctl.d/k8s.conf
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward = 1
+      EOF
+
+      # Configure ARP settings for L2 announcements
+      cat <<EOF | tee /etc/sysctl.d/99-arp-l2.conf
+      # Enable proxy ARP to respond to ARP requests for other addresses
+      net.ipv4.conf.all.proxy_arp = 1
+      net.ipv4.conf.enp0s1.proxy_arp = 1
+
+      # Set ARP announce mode to 2 (announce on all interfaces)
+      net.ipv4.conf.all.arp_announce = 2
+      net.ipv4.conf.enp0s1.arp_announce = 2
+
+      # Set ARP ignore to 0 (answer requests for IPs on any interface)
+      net.ipv4.conf.all.arp_ignore = 0
+      net.ipv4.conf.enp0s1.arp_ignore = 0
+      EOF
+
+      # Apply sysctl parameters without reboot
+      sysctl --system
+
+      # Verify the settings
+      echo "==> Verifying sysctl settings"
+      sysctl net.bridge.bridge-nf-call-iptables
+      sysctl net.bridge.bridge-nf-call-ip6tables
+      sysctl net.ipv4.ip_forward
+
+      # Disable AppArmor (optional)
+      systemctl stop apparmor || true
+      systemctl disable apparmor || true
+    permissions: '0755'
+    
+  - path: /root/install_runtime.sh
+    content: |
+      #!/bin/bash
+      # Script to install Kubernetes 1.32.3 on Ubuntu 24.04
+
+      set -eux
+
+      # Print the script file name
+      echo "==> Running $0"
+
+      KUBE_CORE_VERSION="1.32"
+      KUBE_VERSION="1.32.3"
+      CRICTL_VERSION="v1.32.0"
+      CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/master/stable.txt)
+      CLI_ARCH=arm64
+
+      # Update and install prerequisites
+      apt-get update
+      apt-get install -y apt-transport-https ca-certificates curl bash-completion binutils vim net-tools iputils-arping
+
+      # Add Docker repository
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list
+
+      # Add Kubernetes repository
+      curl -fsSL https://pkgs.k8s.io/core:/stable:/v${KUBE_CORE_VERSION}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${KUBE_CORE_VERSION}/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+
+      # Update apt package index
+      apt-get update
+
+      # Install containerd
+      apt-get install -y containerd.io
+
+      # Install crictl
+      curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_VERSION}/crictl-${CRICTL_VERSION}-linux-arm64.tar.gz --output crictl.tar.gz
+      tar zxvf crictl.tar.gz -C /usr/local/bin
+      rm -f crictl.tar.gz
+
+      # Configure crictl to use containerd by default
+      cat <<EOF > /etc/crictl.yaml
+      runtime-endpoint: unix:///run/containerd/containerd.sock
+      image-endpoint: unix:///run/containerd/containerd.sock
+      timeout: 10
+      debug: false
+      EOF
+
+      # Configure containerd
+      mkdir -p /etc/containerd
+      containerd config dump > /etc/containerd/config.toml
+      sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+      sed -i 's#sandbox_image = "registry.k8s.io/pause:3.8"#sandbox_image = "registry.k8s.io/pause:3.10"#g' /etc/containerd/config.toml
+      systemctl daemon-reload
+      systemctl enable containerd.service
+      systemctl restart containerd.service
+
+      # Verify installations
+      echo "==> Verifying containerd and crictl installations"
+      crictl --version
+      containerd --version
+
+      # Install specific Kubernetes version
+      apt-get install -y kubelet=${KUBE_VERSION}-1.1 kubeadm=${KUBE_VERSION}-1.1 kubectl=${KUBE_VERSION}-1.1
+
+      # Hold packages to prevent automatic updates
+      apt-mark hold kubelet kubeadm kubectl
+
+      # Create directory for kubeadm config
+      mkdir -p /etc/kubernetes
+
+      # Create directory for kubectl config
+      mkdir -p /root/.kube
+
+      # Install bash completion
+      echo 'source /usr/share/bash-completion/bash_completion'>>/root/.bashrc
+      echo 'source <(kubectl completion bash)' >> /root/.bashrc
+      echo 'alias k=kubectl' >> /root/.bashrc
+      echo 'complete -F __start_kubectl k' >> /root/.bashrc
+      echo 'source /usr/share/bash-completion/bash_completion'>>/home/ubuntu/.bashrc
+      echo 'source <(kubectl completion bash)' >> /home/ubuntu/.bashrc
+      echo 'alias k=kubectl' >> /home/ubuntu/.bashrc
+      echo 'complete -F __start_kubectl k' >> /home/ubuntu/.bashrc
+    permissions: '0755'
+
+  - path: /root/setup-worker.sh
+    content: |
+      #!/bin/bash
+      # Main script to run all configuration scripts in order
+      
+      set -eux
+      
+      # Set hostname
+      export node_name="k8s-worker"
+      
+      # Run system configuration
+      /root/configure_system.sh
+      
+      # Install runtime dependencies
+      /root/install_runtime.sh
+      
+      echo "Worker node setup complete! Ready to join the cluster with a kubeadm join command."
+      echo "To join the cluster, SSH into this worker and run the kubeadm join command from the master."
+    permissions: '0755'
+
+runcmd:
+  - 'chmod +x /root/*.sh'
+  - '/root/setup-worker.sh' 

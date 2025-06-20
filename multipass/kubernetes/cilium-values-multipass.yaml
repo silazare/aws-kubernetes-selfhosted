@@ -1,0 +1,76 @@
+# https://github.com/cilium/cilium/blob/main/install/kubernetes/cilium/values.yaml
+# Multipass specific configuration
+---
+ipam:
+  # -- Configure IP Address Management mode.
+  # ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
+  # ipam.mode=kubernetes - Cilium doesn't manage IP-addresses and use kubelet CIDR, more simple
+  # ipam.mode=cluster-pool - Cilium manages IP-addresses and use cluster.podCIDR
+  mode: "cluster-pool"
+  # -- Maximum rate at which the CiliumNode custom resource is updated.
+  ciliumNodeUpdateRate: "15s"
+  # -- Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.
+  installUplinkRoutesForDelegatedIPAM: false
+  operator:
+    # -- IPv4 CIDR list range to delegate to individual nodes for IPAM.
+    # To avoid overlapping with VPC CIDR !!!
+    clusterPoolIPv4PodCIDRList: ["10.244.0.0/16"]
+    # -- IPv4 CIDR mask size to delegate to individual nodes for IPAM.
+    clusterPoolIPv4MaskSize: 24
+    # -- IPv6 CIDR list range to delegate to individual nodes for IPAM.
+    clusterPoolIPv6PodCIDRList: ["fd00::/104"]
+    # -- IPv6 CIDR mask size to delegate to individual nodes for IPAM.
+    clusterPoolIPv6MaskSize: 120
+
+# Configure Cilium to use the correct device for multipass networking
+# For multipass: enp0s1, For AWS EC2: ens5
+devices: enp0s1
+
+# Specify the direct routing device for multipass
+# This fixes the "unable to determine direct routing device" error
+directRoutingDevice: enp0s1
+
+externalIPs:
+  # Enable support for external IPs for services. This allows accessing services from outside the cluster
+  enabled: true
+
+hubble:
+  # Enable Hubble Relay and the Hubble UI. Hubble provides observability into network flows and metrics
+  relay:
+    enabled: true
+  # Disable TLS for Hubble. Not recommended for production
+  tls:
+    enabled: false
+  ui:
+    enabled: true
+
+ingressController:
+  # Enable the Cilium Ingress controller to handle incoming HTTP/HTTPS traffic
+  enabled: true
+  # -- Set cilium ingress controller to be the default ingress controller
+  default: true
+  # Configure the Ingress controller to use shared load balancer for each service
+  # Supported values: shared, dedicated
+  # For granular control, use the following annotations on the ingress resource:
+  # "ingress.cilium.io/loadbalancer-mode: dedicated" (or "shared").
+  loadbalancerMode: shared
+
+# Set both externalTrafficPolicy and internalTrafficPolicy to Cluster. This 
+# distributes traffic to all endpoints of a service, regardless of their location
+internalTrafficPolicy: Cluster
+externalTrafficPolicy: Cluster
+
+# Specify the Kubernetes API server's port
+k8sServicePort: 6443
+
+# Enable Cilium to replace kube-proxy for service handling, eBPF service routing
+kubeProxyReplacement: true
+
+l2announcements:
+  # Enable L2 Announcements to help devices on your local network find your services (since we're not using BGP)
+  # Send ARP - required for bare-metal/VM
+  enabled: true
+
+operator:
+  # Set the number of Cilium operator replicas to 1. In a single-node cluster, multiple replicas cause conflicts
+  replicas: 1 
