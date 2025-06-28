@@ -7,10 +7,12 @@ This folder contains configuration for setting up a Kubernetes cluster using Mul
 ## Create multipass nodes with cloud-init
 ```shell
 # Launch master node with cloud-init
-multipass launch --name k8s-master --cpus 4 --memory 8G --disk 20G noble --cloud-init=master-cloud-init.yaml
+multipass launch --name k8s-master --cpus 4 --memory 8G --disk 24G noble --cloud-init=master-cloud-init.yaml
 
-# Launch worker node with cloud-init
-multipass launch --name k8s-worker --cpus 4 --memory 8G --disk 20G noble --cloud-init=worker-cloud-init.yaml
+# Launch worker nodes with cloud-init
+multipass launch --name k8s-worker-0 --cpus 4 --memory 8G --disk 24G noble --cloud-init=worker-cloud-init.yaml
+
+multipass launch --name k8s-worker-1 --cpus 4 --memory 8G --disk 24G noble --cloud-init=worker-cloud-init.yaml
 ```
 
 ### Bootstrap master node
@@ -31,17 +33,7 @@ chown $(id -u):$(id -g) $HOME/.kube/config
 k cluster-info
 ```
 
-### Bootstrap worker node
-
-Then you can join any number of worker nodes by running the following on each as root:
-```shell
-multipass shell k8s-worker
-
-kubeadm join 192.168.64.6:6443 --token a4dkp2.4t4uj3bkddccuffj \
-	--discovery-token-ca-cert-hash sha256:9d641c0985a34a9236504703363b4143375d7e0ed142a2209539e3f11e205506
-```
-
-### Merge cluster kubeconfig with your own kubeconfig on laptop (optional)
+### Merge cluster kubeconfig with your own kubeconfig on laptop
 - Backup current config
 ```shell
 cp ~/.kube/config ~/.kube/config-bkp
@@ -70,6 +62,16 @@ chmod 600 ~/.kube/config
 unset KUBECONFIG
 ```
 
+### Bootstrap worker nodes
+
+Then you can join any number of worker nodes by running the following on each as root:
+```shell
+multipass shell k8s-worker
+
+kubeadm join 192.168.64.11:6443 --token a4dkp2.4t4uj3bkddccuffj \
+	--discovery-token-ca-cert-hash sha256:9d641c0985a34a9236504703363b4143375d7e0ed142a2209539e3f11e205506
+```
+
 ### Install Cilium
 ```shell
 !!! Replace API server Internal IP !!!
@@ -81,7 +83,7 @@ helm upgrade --install cilium cilium/cilium \
   --namespace kube-system \
   --version 1.17.3 \
   --reuse-values \
-  --set k8sServiceHost="192.168.64.6" \
+  --set k8sServiceHost="192.168.64.11" \
   -f kubernetes/cilium-values-multipass.yaml
 
 k -n kube-system exec -it $(k -n kube-system get pods -l k8s-app=cilium -o jsonpath='{.items[0].metadata.name}') -- cilium status --verbose
@@ -105,28 +107,24 @@ k get CiliumL2AnnouncementPolicy
 k logs -n kube-system -l k8s-app=cilium | grep -i "l2"
 ```
 
-### Check Cilium L2 announcements and its state
+### Check Cilium L2 announcement node and its state
 ```shell
 k -n kube-system get lease | grep cilium-l2announce
 
-k -n kube-system get lease cilium-l2announce-kube-system-cilium-ingress -o jsonpath='{.spec.holderIdentity}'
-
-POD=$(k -n kube-system get pods -l k8s-app=cilium -o wide | grep worker-1 | awk '{print $1}')
+POD=$(k -n kube-system get pods -l k8s-app=cilium -o wide | grep $(k -n kube-system get lease cilium-l2announce-kube-system-cilium-ingress -o jsonpath='{.spec.holderIdentity}') | awk '{print $1}')
 
 k -n kube-system exec $POD -- cilium-dbg shell -- db/show l2-announce
 ```
 
-### Create Test Nginx Ingress LB to check Cilium LB
+### Check Cilium LB and open Hubble UI
 ```shell
-k apply -f kubernetes/nginx-ingress-test.yaml
-curl http://<VIP_SVC_IP>:80
+curl http://<VIP_SVC_IP>
 ```
 
 ### Check Cilium Hubble UI via Cilium LB
 ```shell
 http://<VIP_CILIUM_SVC_IP>
 ```
-
 
 ## Install ArgoCD
 
@@ -154,4 +152,21 @@ k get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}
 http://<VIP_ARGO_SVC_IP>
 ```
 
+## Install OpenTelemetry Astronomy Shop from ArgoCD
+```shell
+k apply -f kubernetes/otel-shop-application.yaml
+```
 
+### Check demo apps 
+```shell
+Web store: http://<VIP>:8080/
+Grafana: http:// <VIP>:8080/grafana/
+Load Generator UI: http:// <VIP>:8080/loadgen/
+Jaeger UI: http:// <VIP>:8080/jaeger/ui/
+Flagd configurator UI: http:// <VIP>:8080/feature
+```
+
+### Tear down demo apps
+```shell
+k delete -f kubernetes/otel-shop-application.yaml
+```

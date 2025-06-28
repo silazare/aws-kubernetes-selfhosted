@@ -8,6 +8,8 @@ metadata:
     app: opentelemetry-demo
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   # Source configuration - Helm chart from OpenTelemetry repository
@@ -17,52 +19,84 @@ spec:
     chart: opentelemetry-demo
     helm:
       # Use the default values.yaml from the chart
+      # https://github.com/open-telemetry/opentelemetry-helm-charts/blob/main/charts/opentelemetry-demo/values.yaml
       valueFiles:
         - values.yaml
-      #Add custom values 
-      # values: |
-      #   # Configure Kafka with Bitnami image for ARM64 compatibility
-      #   components:
-      #     kafka:
-      #       imageOverride:
-      #         repository: bitnami/kafka
-      #         tag: "3.6.0"
-      #       env:
-      #         - name: ALLOW_PLAINTEXT_LISTENER
-      #           value: "yes"
-      #         - name: KAFKA_ENABLE_KRAFT
-      #           value: "yes"
-      #         - name: KAFKA_CFG_NODE_ID
-      #           value: "1"
-      #         - name: KAFKA_CFG_PROCESS_ROLES
-      #           value: "broker,controller"
-      #         - name: KAFKA_CFG_CONTROLLER_LISTENER_NAMES
-      #           value: "CONTROLLER"
-      #         - name: KAFKA_CFG_LISTENERS
-      #           value: "PLAINTEXT://:9092,CONTROLLER://:9093"
-      #         - name: KAFKA_CFG_ADVERTISED_LISTENERS
-      #           value: "PLAINTEXT://kafka:9092"
-      #         - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
-      #           value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
-      #         - name: KAFKA_CFG_CONTROLLER_QUORUM_VOTERS
-      #           value: "1@kafka:9093"
-      #         - name: KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE
-      #           value: "true"
-      #         - name: KAFKA_CFG_DELETE_TOPIC_ENABLE
-      #           value: "true"
-      #         - name: KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR
-      #           value: "1"
-      #         - name: KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
-      #           value: "1"
-      #         - name: KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR
-      #           value: "1"
-      #       securityContext:
-      #         runAsUser: 1001
-      #         runAsGroup: 1001
-      #         fsGroup: 1001
-      #       # Override the default volume mounts to use emptyDir instead of persistent volumes
-      #       additionalVolumes: []
-      #       additionalVolumeMounts: []
+      # Add custom values 
+      values: |
+        # Configure self-built custom images and configs to support ARM64
+        components:
+          ad:
+            imageOverride:
+              repository: exciter86/otel-demo
+              tag: "latest-ad"
+          kafka:
+            imageOverride:
+              repository: exciter86/otel-demo
+              tag: "latest-kafka"
+            env:
+              - name: KAFKA_ADVERTISED_LISTENERS
+                value: PLAINTEXT://kafka:9092
+              - name: KAFKA_PROCESS_ROLES
+                value: "broker,controller"
+              - name: KAFKA_NODE_ID
+                value: "1"
+              - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+                value: "1@kafka:9093"
+              - name: KAFKA_CONTROLLER_LISTENER_NAMES
+                value: "CONTROLLER"
+              - name: KAFKA_LISTENERS
+                value: "PLAINTEXT://:9092,CONTROLLER://:9093"
+              - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+                value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+              - name: KAFKA_INTER_BROKER_LISTENER_NAME
+                value: "PLAINTEXT"
+              - name: CLUSTER_ID
+                value: "kafka-cluster-1"
+              - name: KAFKA_HEAP_OPTS
+                value: "-Xmx400M -Xms400M -XX:UseSVE=0"
+              - name: OTEL_EXPORTER_OTLP_ENDPOINT
+                value: http://$(OTEL_COLLECTOR_NAME):4318
+              - name: OTEL_COLLECTOR_NAME
+                value: otel-collector
+              - name: OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+                value: cumulative
+              - name: OTEL_RESOURCE_ATTRIBUTES
+                value: service.name=$(OTEL_SERVICE_NAME),service.namespace=opentelemetry-demo,service.version=2.0.2
+          frontend-proxy:
+            enabled: true
+            service:
+              # Use Cilium LoadBalancer IP pool
+              type: LoadBalancer
+              port: 8080
+        
+        opensearch:
+          image:
+            tag: "2.11.0"
+          enabled: true
+          fullnameOverride: opensearch
+          clusterName: demo-cluster
+          nodeGroup: otel-demo
+          singleNode: true
+          opensearchJavaOpts: "-Xms300m -Xmx300m"
+          persistence:
+            enabled: false
+          extraEnvs:
+            - name: "bootstrap.memory_lock"
+              value: "true"
+            - name: "DISABLE_INSTALL_DEMO_CONFIG"
+              value: "true"
+            - name: "DISABLE_SECURITY_PLUGIN"
+              value: "true"
+            - name: "DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI"
+              value: "true"
+          resources:
+            limits:
+              memory: 1100Mi
+
+        # TODO: Disabled Grafana because of dashboards config-map issue
+        grafana:
+          enabled: false
   # Destination configuration
   destination:
     server: https://kubernetes.default.svc

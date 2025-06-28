@@ -16,7 +16,9 @@ write_files:
       # Print the script file name
       echo "==> Running $0"
 
-      hostnamectl set-hostname "${node_name}"
+      # Get the current hostname (should be set by cloud-init)
+      NODE_NAME=$(hostname)
+      echo "Setting up node: $NODE_NAME"
 
       # Disable swap
       swapoff -a
@@ -160,8 +162,8 @@ write_files:
       
       set -eux
       
-      # Set hostname
-      export node_name="k8s-worker"
+      # Get the current hostname
+      export node_name=$(hostname)
       
       # Run system configuration
       /root/configure_system.sh
@@ -169,7 +171,7 @@ write_files:
       # Install runtime dependencies
       /root/install_runtime.sh
       
-      echo "Worker node setup complete! Ready to join the cluster with a kubeadm join command."
+      echo "Worker node setup complete for $node_name! Ready to join the cluster with a kubeadm join command."
       echo "To join the cluster, SSH into this worker and run the kubeadm join command from the master."
     permissions: '0755'
 
